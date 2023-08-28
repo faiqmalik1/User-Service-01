@@ -1,6 +1,7 @@
 package com.voting.system.userservice.service;
 
 import CustomException.CommonException;
+import com.cloudinary.Cloudinary;
 import com.voting.system.userservice.Utils.EmailSender;
 import com.voting.system.userservice.Utils.PasswordGenerator;
 import com.voting.system.userservice.feignController.CandidateController;
@@ -20,6 +21,9 @@ import constants.Constants;
 import constants.ReturnMessage;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.io.IOUtils;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -39,6 +43,9 @@ import resources.user.LoginResponseDTO;
 import resources.voter.VoterRequestDTO;
 import resources.voter.VoterResponseDTO;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.*;
 
 import static java.lang.Long.parseLong;
@@ -57,6 +64,8 @@ public class UserService extends BaseService {
   private final JwtUtils jwtUtils;
   private final PasswordEncoder passwordEncoder;
   private final EmailSender emailSender;
+  private final Cloudinary cloudinary;
+
 
   /**
    * retrieve all the list of roles
@@ -164,7 +173,7 @@ public class UserService extends BaseService {
     }
     newImage.setUser(verifiedUser);
     try {
-      newImage.setImage(image.getBytes());
+      newImage.setImage(saveImage(image));
     } catch (Exception ex) {
       throw new CommonException(ReturnMessage.IMAGE_UPLOAD_FAIL.getValue(), HttpStatus.BAD_REQUEST);
     }
@@ -193,7 +202,7 @@ public class UserService extends BaseService {
         halka = constituencyResponseDTO.getHalkaName();
       }
     }
-    return ModelToResponse.parseUserToUserResponse(verifiedUser, halka);
+    return ModelToResponse.parseUserToUserResponse(cloudinary, verifiedUser, halka);
   }
 
   public UserPageResponseDTO retrieveAllUsers(Pageable page) {
@@ -201,7 +210,7 @@ public class UserService extends BaseService {
     if (userPage.isEmpty()) {
       new UserPageResponseDTO(null);
     }
-    Page<UserResponseDTO> userResponsePage = ModelToResponse.parseUserToUserPageResponse(userPage);
+    Page<UserResponseDTO> userResponsePage = ModelToResponse.parseUserToUserPageResponse(cloudinary, userPage);
     return new UserPageResponseDTO(userResponsePage);
   }
 
@@ -217,7 +226,7 @@ public class UserService extends BaseService {
     if (userPage.isEmpty()) {
       new UserPageResponseDTO(null);
     }
-    Page<UserResponseDTO> userResponsePage = ModelToResponse.parseUserToUserPageResponse(userPage);
+    Page<UserResponseDTO> userResponsePage = ModelToResponse.parseUserToUserPageResponse(cloudinary, userPage);
     return new UserPageResponseDTO(userResponsePage);
   }
 
@@ -261,7 +270,7 @@ public class UserService extends BaseService {
   public UserListResponseDTO findAllUsers(UserListRequestDTO userListRequestDTO) {
     List<UserResponseDTO> list = new ArrayList<>();
     for (User user : userRepository.findAllById(userListRequestDTO.getUserIdList())) {
-      UserResponseDTO userResponseDTO = ModelToResponse.parseUserToUserResponse(user, null);
+      UserResponseDTO userResponseDTO = ModelToResponse.parseUserToUserResponse(cloudinary, user, null);
       list.add(userResponseDTO);
     }
     return new UserListResponseDTO(list);
@@ -303,6 +312,9 @@ public class UserService extends BaseService {
    * @return : return the jwt token else return failure exception
    */
   public LoginResponseDTO loginUserJwt(LoginRequestDTO loginRequestDTO) {
+    if (userRoleRepository.findAll().isEmpty()) {
+      generateAdminAndRoles();
+    }
     LoginResponseDTO loginResponseDTO = new LoginResponseDTO();
     if (loginRequestDTO.getUserCNIC() != null && loginRequestDTO.getUserPassword() != null) {
       Optional<User> optionalUser = userRepository.findByUserCNIC(loginRequestDTO.getUserCNIC());
@@ -352,7 +364,7 @@ public class UserService extends BaseService {
     validateResponseDTO.setUserId(verifiedUser.getUserId());
     validateResponseDTO.setUserName(verifiedUser.getUsername());
     if (verifiedUser.getUserImage() != null && (verifiedUser.getUserImage().getImage() != null)) {
-      validateResponseDTO.setProfile(verifiedUser.getUserImage().getImage());
+      validateResponseDTO.setProfile(getImageFromCloud(verifiedUser.getUserImage().getImage()));
     } else {
       validateResponseDTO.setProfile(null);
     }
@@ -432,5 +444,53 @@ public class UserService extends BaseService {
     message.setText(emailBody);
     emailSender.getJavaMailSender().send(message);
     return generateSuccessResponse();
+  }
+
+  @Transactional
+  public ResponseDTO generateAdminAndRoles() {
+    Role role = new Role();
+    role.setRoleName(Constants.VOTER);
+    roleRepository.save(role);
+    Role role2 = new Role();
+    role2.setRoleName(Constants.ADMIN);
+    role2 = roleRepository.save(role2);
+    Role role3 = new Role();
+    role3.setRoleName(Constants.CANDIDATE);
+    roleRepository.save(role3);
+
+    User user = new User();
+    user.setUserName("Faiq Malik");
+    user.setPassword(passwordEncoder.encode(Constants.DEFAULT_CODE));
+    user.setUserCNIC("35202-4074847-5");
+    user.setEmail("faiq.ijaz@devsinc.com");
+    user.setCreatedAt(new Date());
+    userRepository.save(user);
+    UserRole userRole = new UserRole();
+    userRole.setUserId(user);
+    userRole.setRole(role2);
+    userRoleRepository.save(userRole);
+    return generateSuccessResponse();
+  }
+
+  public String saveImage(MultipartFile image) throws IOException {
+    Map<String, String> uploadResult = cloudinary.uploader().upload(image.getBytes(), Map.of());
+    return uploadResult.get("public_id");
+  }
+
+  public byte[] getImageFromCloud(String publicID) {
+
+    String cloudUrl = cloudinary.url()
+            .publicId(publicID)
+            .generate();
+    try {
+      URL url = new URL(cloudUrl);
+      InputStream inputStream = url.openStream();
+      byte[] out = IOUtils.toByteArray(inputStream);
+      ByteArrayResource resource = new ByteArrayResource(out);
+      return resource.getByteArray();
+
+    } catch (Exception ex) {
+      return null;
+    }
   }
 }

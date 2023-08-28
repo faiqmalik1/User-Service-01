@@ -20,8 +20,6 @@ public class UserImage {
   @JoinColumn(name = "userId")
   private User user;
 
-  @Lob
-  @Column(columnDefinition = "LONGBLOB")
-  private byte[] image;
+  private String image;
 
 }

@@ -21,6 +21,7 @@ import java.util.Set;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(name = "app_user")
 public class User implements UserDetails {
 
   @Id
