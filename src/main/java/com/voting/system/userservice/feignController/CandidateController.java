@@ -59,5 +59,7 @@ public interface CandidateController {
   @PostMapping("/candidate/register/admin")
   public ResponseDTO createCandidateByAdmin(@CookieValue("Authorization") String token, @RequestBody CandidateRequestDTO candidateRequestDTO);
 
+  @PostMapping("/candidate/party/create")
+  public ResponseDTO createParty();
 
 }

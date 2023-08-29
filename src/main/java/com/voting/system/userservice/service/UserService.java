@@ -424,7 +424,7 @@ public class UserService extends BaseService {
   }
 
   private void sendEmail(User user, String role, String halka, String password) {
-    String body = "Greetings " + user.getUserName() + "\nA very warm welcome to Voting System. You are invited as " + role + "\nFollowing are your credentials for logIn\n CNIC: " + user.getUserCNIC() + "\nPassword: " + password + "\n\nRegards\nVoting Team";
+    String body = "Greetings " + user.getUserName() + "\nA very warm welcome to Voting System. You are invited as " + role + "\nFollowing are your credentials for logIn\n CNIC: " + user.getUserCNIC() + "\nPassword: " + password +"\n You can login from here: http://18.212.158.163:3000/ui/login "+ "\n\nRegards\nVoting Team";
     SimpleMailMessage message = new SimpleMailMessage();
     message.setTo(user.getEmail());
     message.setSubject("Invitation From Voting Service!!");
@@ -464,11 +464,18 @@ public class UserService extends BaseService {
     user.setUserCNIC("35202-4074847-5");
     user.setEmail("faiq.ijaz@devsinc.com");
     user.setCreatedAt(new Date());
-    userRepository.save(user);
+    user = userRepository.save(user);
     UserRole userRole = new UserRole();
     userRole.setUserId(user);
     userRole.setRole(role2);
     userRoleRepository.save(userRole);
+
+    candidateController.createParty();
+    ConstituencyResponseDTO constituencyResponseDTO = constituencyController.createConstituency();
+    VoterRequestDTO voterRequestDTO = new VoterRequestDTO();
+    voterRequestDTO.setConstituencyId(constituencyResponseDTO.getConstituencyId());
+    voterRequestDTO.setUserId(user.getUserId());
+    voterController.createVoter(voterRequestDTO);
     return generateSuccessResponse();
   }
 
@@ -493,4 +500,5 @@ public class UserService extends BaseService {
       return null;
     }
   }
+
 }

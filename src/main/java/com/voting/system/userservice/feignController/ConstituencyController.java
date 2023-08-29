@@ -3,6 +3,8 @@ package com.voting.system.userservice.feignController;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import resources.ResponseDTO;
 import resources.constituency.ConstituencyListResponseDTO;
 import resources.constituency.ConstituencyResponseDTO;
 
@@ -34,6 +36,9 @@ public interface ConstituencyController {
    */
   @GetMapping("/constituency")
   public ConstituencyListResponseDTO retrieveConstituencies();
+
+  @PostMapping("/constituency/create")
+  public ConstituencyResponseDTO createConstituency();
 
 
 }

@@ -162,4 +162,5 @@ public class UserController {
   public ResponseDTO sendEmail(@CookieValue("Authorization") String token, @RequestParam String emailBody) {
     return userService.sendEmail(token, emailBody);
   }
+
 }
